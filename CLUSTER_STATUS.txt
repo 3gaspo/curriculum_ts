@@ -1,5 +1,5 @@
 CLUSTER EXPERIMENT STATUS
-Updated: 2026-08-26
+Updated: 2026-08-28
 
 SCHEMA V1 CUTOVER
 - No synchronized result artifacts require migration.
@@ -10,10 +10,10 @@ SCHEMA V1 CUTOVER
   Selena front selects logs_selena/ and outputs_selena/.
 
 LATEST COMPLETED JOB
-Run/profile: none recorded
-Artifacts synchronized locally: unknown
-Analyzed locally: unknown
-Analysis note: No cluster-run status was supplied when this file was initialized.
+Run/profile: none
+Artifacts synchronized locally: none
+Analyzed locally: none
+Analysis note: The user confirmed that no job is currently running or queued.
 
 CURRENT OR NEXT CLUSTER JOBS
 Run the bare EXPERIMENT_MODE=test curriculum.slurm smoke workflow before any
@@ -21,7 +21,8 @@ publication submission. After its DGX contract is checked, run
 EXPERIMENT_MODE=test curriculum_selena.slurm and validate isolated Selena
 artifacts plus both synchronization directions.
 
-No Selena front or transfer has yet been exercised on the clusters.
+No Selena experiment job or result transfer is recorded. Code-deployment
+state was not independently inspected in this handoff.
 Result synchronization must run on DGX as an inbound Selena pull. An unscoped
 publisher run includes the paired Selena artifact trees under the standard
 lightweight exclusions.
