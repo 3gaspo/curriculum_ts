@@ -1,0 +1,209 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern,microtype}
+\usepackage[margin=18mm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,tabularx,array}
+\usepackage{xcolor,hyperref,enumitem}
+\definecolor{navy}{HTML}{17365D}
+\hypersetup{colorlinks=true,linkcolor=navy,urlcolor=navy}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55\baselineskip}
+\setlist{nosep,leftmargin=*}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\title{\textbf{Curriculum Learning for Multi-user Forecasting}\\Experiment Guideline}
+\author{Thesis project}
+\date{25 August 2026}
+\begin{document}
+\maketitle
+
+\section{Research setting}
+The project tests whether ordering users from easier to harder improves
+forecasting convergence, final accuracy, or tail-user performance.  A run holds
+the forecasting architecture, optimizer-step budget, batch size,
+normalization, loss, chronological splits, and evaluation windows fixed; only
+the user-sampling curriculum changes.
+
+For user $u$, a sampled query date $t$ supplies
+$X_{u,t}=X_u(t-L,t]$ and $Y_{u,t}=X_u(t,t+H]$.  Split ownership is defined by
+target dates, so validation and test lookbacks may cross the start of their
+target interval but their targets may not.
+
+\section{Difficulty and curriculum}
+The default user difficulty is the median training-window persistence nMSE:
+\[
+ d_u=\operatorname{median}_t
+ \frac{\operatorname{MSE}(Y_{u,t},X_{u,t,L}\mathbf 1_H)}
+      {(\operatorname{sd}(X_{u,t})+\varepsilon)^2}.
+\]
+Only accessible training targets enter this score. Constant or non-finite users
+are removed before ranking by default, and ties use stable source user IDs.
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lY@{}}
+\toprule
+Method & Contract \\
+\midrule
+\code{uniform} & All users remain equally likely. \\
+\code{easy_to_hard} & Cumulatively reveal users in increasing $d_u$. \\
+\code{hard_to_easy} & Reverse-order control. \\
+\code{random_order} & Seeded random cumulative order. \\
+\code{exposure_matched} & All users are available immediately, with fixed
+probabilities matching easy-to-hard expected exposure. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+For phase $k$, $S_k$ samples and active set $A_k$, the target exposure is
+\[
+ E_u=\sum_k S_k\frac{\mathbf 1[u\in A_k]}{|A_k|}.
+\]
+The comparison between easy-to-hard and exposure-matched separates temporal
+ordering from marginal reweighting.  The default is five equal-duration
+phases, an initial 20\% of users, and linear pacing; square-root and quadratic
+pacing are supported.
+
+\section{Models, metrics, and uncertainty}
+The standalone forecasting core provides DLinear and PatchTST, global and
+instance normalization, MSE and normalized losses, exact optimizer-step
+budgets, and query-date sampling.  Primary metrics are global MSE, equal-user
+MSE, worst-10\%-user MSE, convergence curves, difficulty-quantile metrics, and
+realized versus expected exposure. The reversible instance-normalization type
+is named \code{RevIN}, without a redundant ``Normalization'' suffix.
+
+One run seed is the only randomness identifier for that run. It must fix user
+ordering, user/window sampling, model initialization, and optimization. Across
+seed runs, reported dispersion intentionally includes all of those sources.
+
+\section{Implementation path and provenance}
+The scientific treatment is isolated in \code{src/curriculum}: difficulty
+scores, schedules, controllers, and curriculum-aware fitting. General tensor
+handling follows the TimeTensors interfaces through separate
+\code{data/core.py}, \code{sampling.py}, \code{frames.py}, \code{io.py},
+\code{splits.py}, \code{statistics.py}, and \code{loaders.py}. Ordinary
+construction, fitting, manifests, summaries, and plots remain respectively in
+\code{model_loading}, \code{training}, \code{pipeline}, \code{results}, and
+\code{visualization}; no sibling checkout is imported.
+
+\noindent The source-adapted external packages are pinned as follows:
+\begin{flushleft}\small
+PatchTST package: \texttt{external\_models/patchtst}\\
+Upstream: \texttt{yuqinie98/PatchTST}\\
+Revision: \texttt{204c21efe0b39603ad6e2ca640ef5896646ab1a9}\\[2pt]
+DLinear package: \texttt{external\_models/dlinear}\\
+Upstream: \texttt{cure-lab/LTSF-Linear}\\
+Revision: \texttt{0c113668a3b88c4c4ee586b8c5ec3e539c4de5a6}
+\end{flushleft}
+The package snapshots are
+byte-identical to TimeTensors and expose the common
+\code{lags, dim, horizon} tensor boundary.
+
+The executed scientific path is:
+\begin{verbatim}
+load panel and chronological target splits
+compute training-only user difficulty and a stable ordering
+construct one fixed-step sampler for the selected curriculum
+fit one unchanged model/optimizer across every curriculum phase
+evaluate common query dates; aggregate global, user, W10, and quantile metrics
+\end{verbatim}
+
+\section{Experiment grid}
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}lYYYY@{}}
+\toprule
+Mode & Datasets & Settings & Models & Seeds/budget \\
+\midrule
+\code{test} & Electricity & $504{:}168$ & PatchTST & seed 1, 20 steps \\
+\code{full} & ETTh1, Electricity, Traffic, Solar, Weather, Exchange &
+$168{:}24$, $336{:}48$, $504{:}168$ & PatchTST & seeds 1--3 \\
+\code{ultra} & full grid & full grid & PatchTST, DLinear & seeds 1--3 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+All five curricula are crossed with each selected configuration. ETTh1 uses
+all seven non-date variables rather than an OT-only derivative.
+
+\section{Execution and recovery}
+The DGX front is \code{curriculum.slurm}; Selena uses
+\code{curriculum_selena.slurm}. Both source the same implementation and default
+to \code{STAGES=train,tables}. Submit
+\begin{verbatim}
+EXPERIMENT_MODE=test sbatch curriculum.slurm
+EXPERIMENT_MODE=full sbatch curriculum.slurm
+EXPERIMENT_MODE=ultra sbatch curriculum.slurm
+\end{verbatim}
+Replacing the filename by \code{curriculum_selena.slurm} preserves the same
+experiment on Selena. Workflow roots \code{LOGS_ROOT} and \code{OUTPUTS_ROOT}
+default to \path{logs/} and \path{outputs/}; the Selena front overrides them to
+\path{logs_selena/} and \path{outputs_selena/}.
+The front sources \code{src/slurm/run_curriculum_experiment.sh}. Training and
+table implementations live under \code{src/slurm/}. Resubmission allocates or
+resumes current-manifest runs and executes only incomplete seeds. Use
+\code{STAGES=train} or \code{STAGES=tables} only for recovery.
+
+Slurm workflows never submit a publisher or execute Git commands. After any
+terminal state, including failure, cancellation, or timeout, the user runs
+\code{bash publish_job.sh <job-id>} from the project root. The script verifies
+\code{main}, sources \code{$HOME/codes/proxy.sh} (or
+\code{PROXY_SCRIPT_PATH}), and fast-forward pulls \code{origin/main} before
+artifact selection or staging. Lightweight publication selects the exact
+local or Selena stdout/stderr pair when a job ID is supplied, all log trees
+otherwise, and only aggregate \path{outputs*/reports/} artifacts. Detailed
+publication adds all non-binary outputs and diagnostics. Both tiers exclude
+\code{*.pt}, \code{*.npy}, and \code{*.cbm}. The script then pushes
+\code{origin/main} without opening a pull request. A
+non-fast-forward pull stops without a merge commit, and unrelated staged paths
+remain outside the publisher commit.
+
+\section{Data and artifact contract}
+The loader discovers \code{config.json} beside the selected CSV or at an
+explicit path. Shared fields are top-level, project overrides live under
+\code{curriculum_learning}, and explicit run settings override both. For
+\code{drop_users}, null inherits, an empty list retains every CSV user, and a
+nonempty run list replaces the configured default. The project reads CSV
+directly and does not create or consume TimeTensors dataset caches.
+
+The ordered relative identity below the selected output root is
+\begin{verbatim}
+curriculum/dataset/L_H/backbone/method/difficulty/aggregation/
+  pacing/phases/initial_fraction/run_n/seed_n/
+\end{verbatim}
+Every named model config owns one directory. Steps, batch size, learning rate,
+evaluation cadence, splits, strides, and quantile count are pipeline configs;
+device and Slurm placement are runtime configs. One seed fixes every stochastic
+choice in a repetition. Mode selects a subset of these paths and is neither a
+path nor signature field.
+
+Each seed saves resolved and dataset configurations, difficulty and curriculum
+plans, model state, history, loss plot, global/per-user losses,
+\code{results.json}, and \code{all_losses.pt}. The enclosing
+\code{manifest.json} uses \code{schema_version: 1}, records configs, optional
+plain provenance, launch attempts, per-seed state, required artifacts, and one
+of the four overall states \code{not_run}, \code{running}, \code{interrupted},
+or \code{completed}. A seed state may additionally be \code{ready}.
+Run identity contains only the schema, identity/model configs,
+pipeline/experiment configs, and seeds. It never fingerprints or hashes code, Slurm
+files, data, weights, logs, outputs, or directories; code/data changes are
+manual rerun decisions. The schema changes only for a deliberate global
+contract break, and \code{new} creates another repeat with unchanged parameters.
+
+The default \code{overwrite_exact} policy skips an exact completion, resumes an
+exact interruption, and allocates the next \code{run_n} for a changed pipeline.
+The overall run remains \code{running} with \code{ready_at_utc} while finished
+seed states are \code{ready}; completion occurs immediately after that
+configuration's producer process returns successfully. Later configuration or
+table failures preserve completed runs and interrupt only unfinished work. The completed manifest is authoritative,
+without later file hashing or synchronization checks. Tables accept
+distinct/latest/average pipeline policies and selected/latest/distinct/average
+repeat policies. Explicit pipeline filters select configurations and must match
+even for one run; \code{SELECTED_RUNS.txt} stores only automatic or pinned exact
+repeats. Reports live under \path{outputs/reports/curriculum/mode/} and record
+requested filters and obtained input manifests. Other schema versions are rerun or archived, never read
+through a compatibility fallback.
+
+\section{Lightweight validation}
+Run the schedule, dataset-config, workflow, Torch curriculum, and smoke tests
+under \code{src/tests/}. Do not run publication training locally.
+\end{document}

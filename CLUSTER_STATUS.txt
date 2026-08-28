@@ -1,0 +1,30 @@
+CLUSTER EXPERIMENT STATUS
+Updated: 2026-08-26
+
+SCHEMA V1 CUTOVER
+- No synchronized result artifacts require migration.
+- New runs use outputs/curriculum/dataset/L_H/backbone/method/difficulty/
+  aggregation/pacing/phases/initial_fraction/run_n/seed_n and current manifests.
+- EXPERIMENT_MODE selects subsets of this one tree.
+- Runtime roots default to logs/ and outputs/ and are overridable. The matching
+  Selena front selects logs_selena/ and outputs_selena/.
+
+LATEST COMPLETED JOB
+Run/profile: none recorded
+Artifacts synchronized locally: unknown
+Analyzed locally: unknown
+Analysis note: No cluster-run status was supplied when this file was initialized.
+
+CURRENT OR NEXT CLUSTER JOBS
+Run the bare EXPERIMENT_MODE=test curriculum.slurm smoke workflow before any
+publication submission. After its DGX contract is checked, run
+EXPERIMENT_MODE=test curriculum_selena.slurm and validate isolated Selena
+artifacts plus both synchronization directions.
+
+No Selena front or transfer has yet been exercised on the clusters.
+Result synchronization must run on DGX as an inbound Selena pull. An unscoped
+publisher run includes the paired Selena artifact trees under the standard
+lightweight exclusions.
+
+MAINTENANCE
+Update this file after submission, completion, artifact synchronization, and analysis.

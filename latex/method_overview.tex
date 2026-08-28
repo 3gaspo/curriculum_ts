@@ -1,0 +1,66 @@
+\documentclass[10pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,microtype}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
+\definecolor{navy}{HTML}{17365D}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\title{\color{navy}Curriculum Learning for Time-Series Users\\[3pt]\large Problem formulation and proposed treatment}
+\author{Thesis project}
+\date{Standalone method note}
+\begin{document}
+\maketitle
+\begin{abstract}
+This note isolates the scientific formulation from implementation and cluster
+operations. It is intended to be readable on its own and reusable when drafting
+a paper introduction or method section.
+\end{abstract}
+
+\section{Forecasting task}
+Let $x_u(1{:}T)$ be the series of user $u\in\mathcal U$. At query time $t$,
+the model receives $X_{u,t}=x_u(t-L+1{:}t)\in\R^L$ and predicts
+$Y_{u,t}=x_u(t+1{:}t+H)\in\R^H$. Training and evaluation splits are
+chronological and the complete target horizon belongs to its target split.
+
+\section{Causal user difficulty}
+Difficulty is computed from accessible training windows only. Persistence uses
+$\widehat Y_{u,t,h}=x_u(t)$ and gives the normalized window error
+\[
+ d_{u,t}=\frac{\operatorname{MSE}(Y_{u,t},\widehat Y_{u,t})}
+ {(\operatorname{std}(X_{u,t})+\varepsilon)^2}.
+\]
+The default user score is $d_u=\operatorname{median}_t d_{u,t}$. Users are
+sorted by $(d_u,u)$, using the stable source identity to resolve ties.
+
+\section{Proposed curriculum}
+Training has $K$ phases and a fixed total of $S$ optimizer steps. Phase $k$
+activates a cumulative prefix $A_k\subseteq\mathcal U$ of the ordered users.
+At step $s$ in phase $k$, the sampler draws
+\[
+  u_s\sim\operatorname{Uniform}(A_k),\qquad
+  (X_{u_s,t_s},Y_{u_s,t_s})\sim\mathcal W_{u_s}^{\rm train}.
+\]
+The model, optimizer, scheduler, and global step persist across phase
+boundaries. Only the user sampling distribution changes.
+
+\section{Controls and interpretation}
+Uniform sampling tests the value of any curriculum. Hard-to-easy and a seeded
+random order test whether the chosen order matters. The exposure-matched
+control removes temporal order while retaining each user's expected number of
+updates:
+\[
+ E_u=\sum_{k=1}^K S_k\frac{\mathbf 1[u\in A_k]}{|A_k|},\qquad
+ p_u=\frac{E_u}{\sum_v E_v}.
+\]
+A gain over uniform but not over exposure matching indicates reweighting; a
+gain over both supports a temporal-order effect.
+
+\section{Reported evidence}
+All methods share backbone, initialization distribution, optimizer budget,
+batch size, loss, and evaluation rows. Reports include global error,
+equal-user error, worst-10-percent-user error, convergence by optimizer step,
+and error by difficulty quantile.
+\end{document}

@@ -1,0 +1,96 @@
+defaults:
+  - override hydra/job_logging: stdout
+  - _self_
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  job:
+    chdir: false
+
+data:
+  raw_path: datasets/electricity
+  name: electricity
+  config_path: null
+  drop_users: null
+  target_cols: null
+  splits:
+    date_splits: [0.6, 0.2, 0.2]
+    indiv_split: 1.0
+    shuffle_individuals: true
+  sampling:
+    train_idx_mode: random
+    eval_idx_mode: all
+    train_stride: 1
+    eval_stride: 24
+    shuffle_train: true
+    shuffle_eval: false
+    remove_train_cte: false
+    remove_eval_cte: false
+    drop_train_constant_individuals: true
+    drop_eval_constant_individuals: true
+    train_block_individuals: 1
+    eval_block_individuals: 1
+
+task:
+  lags: 168
+  horizon: 24
+
+model:
+  name: patchtst
+  path: patchtst
+  kwargs: {}
+
+normalization:
+  name: instance
+  kwargs:
+    affine: false
+
+training:
+  batch_size: 256
+  steps: 10000
+  lr: 1e-5
+  optimizer: adam
+  optimizer_kwargs: {}
+  grad_clip: null
+  loss: nmse
+  complete_evaluation: true
+  device: gpu
+  valid_eval_freq: 1000
+  logging_eval_freq: 1000
+  eval_runs: 1
+  plot_step_train_loss: false
+
+curriculum:
+  method: uniform
+  quantiles: 5
+  difficulty:
+    name: persistence_nmse
+    stride: 24
+    aggregation: median
+    eps: 1e-8
+  schedule:
+    phases: 5
+    initial_fraction: 0.2
+    pacing: linear
+
+evaluation:
+  splits: null
+  runs: 1
+  plot_example: false
+
+experiment:
+  seed: 1
+  seeds: null
+  prepare_loaders: true
+  recompute_stats: true
+  stats_max_windows: null
+  stats_eps: 1e-8
+
+output:
+  dir: outputs/manual_debug/electricity/168_24
+  name: patchtst_uniform
+
+misc:
+  log_level: INFO
