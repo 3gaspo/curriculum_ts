@@ -98,5 +98,20 @@ class SlurmWorkflowTest(unittest.TestCase):
         self.assertTrue((ROOT / "src/slurm/stage_train.sh").is_file())
 
 
+class TerminalCompletionContractTest(unittest.TestCase):
+    def test_tasks_stages_and_workflow_have_terminal_markers(self) -> None:
+        runner = (ROOT / "src/slurm/run_curriculum_experiment.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("task $ACTIVE_TASK completed status=$status", runner)
+        self.assertIn("completed status=failed exit_code=$status", runner)
+        self.assertIn("workflow completed status=success exit_code=0", runner)
+        self.assertIn("workflow completed status=failed exit_code=$status", runner)
+        for name in ("train", "tables"):
+            stage = (ROOT / f"src/slurm/stage_{name}.sh").read_text(encoding="utf-8")
+            self.assertIn(f"stage_start {name}", stage)
+            self.assertIn("stage_complete", stage)
+
+
 if __name__ == "__main__":
     unittest.main()

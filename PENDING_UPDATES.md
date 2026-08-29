@@ -290,3 +290,18 @@ lifecycle observations, and publisher check remain pending.
   report hierarchy; re-render the guideline during maintenance. Existing
   training does not require rerunning, but regenerate curriculum reports in
   their new path before lightweight transfer.
+
+## 2026-08-29 — Terminal Slurm completion records
+
+- Behavior and affected contracts: every curriculum configuration and table
+  subtask now records a terminal success, skipped, or failed state; both stages
+  record terminal states; and the exit trap always records the authoritative
+  workflow status after launch-manifest finalization.
+- Focused check completed: `src/tests/test_slurm_workflow.py` passed (3 tests)
+  in the shared thesis runtime.
+- Deferred integration: observe the new markers in one successful and one
+  failed cluster job; no experiment was launched locally.
+- README/LaTeX and reruns: public and scientific behavior are unchanged, so no
+  documentation update or result rerun is required. Historical logs remain
+  valid but naturally do not gain terminal markers retroactively.
+
